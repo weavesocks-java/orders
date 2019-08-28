@@ -1,0 +1,16 @@
+<?xml version='1.0'?>
+
+<!--
+This operational configuration override file is set up for use with Coherence in
+a development mode.
+-->
+
+<coherence  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xmlns="http://xmlns.oracle.com/coherence/coherence-operational-config"
+            xsi:schemaLocation="http://xmlns.oracle.com/coherence/coherence-operational-config coherence-operational-config.xsd">
+
+  <logging-config>
+    <message-format>(thread={thread}, member={member}): {text}</message-format>
+  </logging-config>
+
+</coherence>
