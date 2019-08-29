@@ -1,12 +1,13 @@
 package com.oracle.coherence.weavesocks.order;
 
+import java.io.Serializable;
+
 import javax.validation.constraints.NotNull;
 
-public class Item {
+public class Item implements Serializable {
 
     private String id;
 
-    @NotNull(message = "Item Id must not be null")
     private String itemId;
     private int quantity;
     private float unitPrice;

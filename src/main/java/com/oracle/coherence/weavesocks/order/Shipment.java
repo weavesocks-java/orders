@@ -1,46 +1,17 @@
 package com.oracle.coherence.weavesocks.order;
 
-import java.util.UUID;
+import java.io.Serializable;
+import java.util.Objects;
 
-public class Shipment {
+public class Shipment implements Serializable {
     private String id;
-    private String name;
+    private String trackingNumber;
 
     public Shipment() {
-        this("");
     }
 
-    public Shipment(String name) {
-        this(UUID.randomUUID().toString(), name);
-    }
-
-    public Shipment(String id, String name) {
+    public Shipment(String id) {
         this.id = id;
-        this.name = name;
-    }
-
-    @Override
-    public String toString() {
-        return "Shipment{" +
-                "id='" + id + '\'' +
-                ", name='" + name + '\'' +
-                '}';
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
-        Shipment shipment = (Shipment) o;
-
-        return getId() != null ? getId().equals(shipment.getId()) : shipment.getId() == null;
-
-    }
-
-    @Override
-    public int hashCode() {
-        return getId() != null ? getId().hashCode() : 0;
     }
 
     public String getId() {
@@ -51,11 +22,37 @@ public class Shipment {
         this.id = id;
     }
 
-    public String getName() {
-        return name;
+    public String getTrackingNumber() {
+        return trackingNumber;
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public void setTrackingNumber(String trackingNumber) {
+        this.trackingNumber = trackingNumber;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Shipment shipment = (Shipment) o;
+        return id.equals(shipment.id) &&
+                trackingNumber.equals(shipment.trackingNumber);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, trackingNumber);
+    }
+
+    @Override
+    public String toString() {
+        return "Shipment{" +
+                "id='" + id + '\'' +
+                ", trackingNumber='" + trackingNumber + '\'' +
+                '}';
     }
 }

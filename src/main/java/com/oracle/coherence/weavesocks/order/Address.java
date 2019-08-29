@@ -1,6 +1,8 @@
 package com.oracle.coherence.weavesocks.order;
 
-public class Address {
+import java.io.Serializable;
+
+public class Address implements Serializable {
 
     private String id;
 

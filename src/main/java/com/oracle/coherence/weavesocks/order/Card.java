@@ -1,6 +1,8 @@
 package com.oracle.coherence.weavesocks.order;
 
-public class Card {
+import java.io.Serializable;
+
+public class Card implements Serializable {
 
     private String id;
 

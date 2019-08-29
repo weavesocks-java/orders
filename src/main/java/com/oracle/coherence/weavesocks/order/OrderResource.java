@@ -1,34 +1,54 @@
 package com.oracle.coherence.weavesocks.order;
 
-import io.helidon.config.Config;
-
 import java.net.URI;
-import java.util.ArrayList;
+
 import java.util.Calendar;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.enterprise.context.ApplicationScoped;
+
 import javax.inject.Inject;
+
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.Entity;
+
+import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import com.oracle.common.base.InverseComparator;
 import com.tangosol.net.NamedCache;
 
+import com.tangosol.util.Filters;
+import com.tangosol.util.ValueExtractor;
+import com.tangosol.util.comparator.ExtractorComparator;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
+import static javax.ws.rs.core.Response.Status.CREATED;
+import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 @ApplicationScoped
 @Path("/orders")
@@ -37,86 +57,91 @@ public class OrderResource {
     @Inject
     private NamedCache<String, CustomerOrder> orders;
 
-    private final Logger LOGGER = Logger.getLogger(getClass().getName());
+    private static final Logger LOGGER = Logger.getLogger(OrderResource.class.getName());
+    private static final Client CLIENT = ClientBuilder.newClient();
 
-    private static final Client client = ClientBuilder.newClient();
-    private static final Config config = Config.create();
-    private static long timeout = config.get("http.timeout").asLong().get();
+    @ConfigProperty(name = "http.timeout")
+    private long timeout;
+
+    @GET
+    @Path("search/customerId")
+    @Produces(APPLICATION_JSON)
+    public Response getOrdersForCustomer(@QueryParam("custId") String customerId) {
+        Collection<CustomerOrder> customerOrders = orders.values(Filters.equal(CustomerOrder::getCustomerId, customerId), null);
+        if (customerOrders.isEmpty()) {
+            return Response.status(NOT_FOUND).build();
+        }
+        return wrap("customerOrders", customerOrders);
+    }
+
+    private Response wrap(String key, Object value) {
+        Map<String, Map<String, Object>> map = Collections.singletonMap("_embedded", Collections.singletonMap(key, value));
+        return Response.ok(map).build();
+    }
 
     @GET
     @Path("{id}")
     @Produces(APPLICATION_JSON)
     public CustomerOrder getOrder(@PathParam("id") String orderId) {
-
         return orders.getOrDefault(orderId, new CustomerOrder());
     }
 
     @POST
     @Consumes(APPLICATION_JSON)
     @Produces(APPLICATION_JSON)
-    public CustomerOrder newOrder(NewOrderResource item) throws Exception {
-        try {
-            if (item.address == null || item.customer == null ||
-                    item.card == null || item.items == null) {
-                throw new InvalidOrderException("Invalid order request. Order requires customer, address, card and items.");
-            }
-
-            LOGGER.log(Level.INFO, "Processing new order...");
-
-            Future<Address>  addressFuture = asyncGet(item.address, Address.class);
-            Future<Customer>  customerFuture = asyncGet(item.customer, Customer.class);
-            Future<Card>  cardFuture = asyncGet(item.card, Card.class);
-            //Future<List<Item>> itemsFuture = asyncGet(item.items, new ArrayList<Item>() {}.getClass());
-            List<Item> items = httpGet(item.items, new ArrayList<Item>() {}.getClass());
-
-            Address address = addressFuture.get(timeout, TimeUnit.SECONDS);
-            Card card = cardFuture.get(timeout, TimeUnit.SECONDS);
-            Customer customer = customerFuture.get(timeout, TimeUnit.SECONDS);
-            float amount = calculateTotal(items);
-
-            // Call payment service to make sure they've paid
-            LOGGER.log(Level.INFO, "Calling Payment service ...");
-
-            PaymentRequest paymentRequest = new PaymentRequest(null, address, card, customer, amount);
-            URI paymentUri = new ServiceUri(new Hostname("payment"), new Domain(""), "/paymentAuth").toUri();
-            Future<Response> paymentResponseFuture = asyncPost(paymentUri, Entity.json(paymentRequest));
-
-            PaymentResponse paymentResponse = paymentResponseFuture.get(timeout, TimeUnit.SECONDS).readEntity(PaymentResponse.class);
-
-            if (paymentResponse == null) {
-                throw new PaymentDeclinedException("Unable to parse authorisation packet");
-            }
-            if (!paymentResponse.isAuthorised()) {
-                throw new PaymentDeclinedException(paymentResponse.getMessage());
-            }
-
-            // create shipment
-            LOGGER.log(Level.INFO, "Creating Shipment ...");
-
-            String customerId = customer.getId();
-            String orderId = paymentRequest.getOrderId();
-            URI shippingUri = new ServiceUri(new Hostname("shipping"), new Domain(""), "/shipping").toUri();
-
-            Future<Response> shippingResponseFuture = asyncPost(shippingUri, Entity.json(new Shipment(customerId)));
-
-            CustomerOrder order = new CustomerOrder(
-                    orderId,
-                    customerId,
-                    customer,
-                    address,
-                    card,
-                    items,
-                    shippingResponseFuture.get(timeout, TimeUnit.SECONDS).readEntity(Shipment.class),
-                    Calendar.getInstance().getTime(),
-                    amount);
-
-            orders.put(orderId, order);
-
-            LOGGER.log(Level.INFO, "Done processing CustomerOrder id : " + orderId);
-            return order;
-        } catch (TimeoutException e) {
-            throw new IllegalStateException("Unable to create order due to timeout from one of the services.", e);
+    public Response newOrder(NewOrderRequest request) {
+        if (request.address == null || request.customer == null || request.card == null || request.items == null) {
+            throw new InvalidOrderException("Invalid order request. Order requires customer, address, card and items.");
         }
+
+        LOGGER.log(Level.INFO, "Processing new order...");
+
+        List<Item> items    = httpGet(request.items, new GenericType<List<Item>>() { });
+        Address    address  = httpGet(request.address, Address.class);
+        Card       card     = httpGet(request.card, Card.class);
+        Customer   customer = httpGet(request.customer, Customer.class);
+
+        float amount = calculateTotal(items);
+
+        // Call payment service to make sure they've paid
+        LOGGER.log(Level.INFO, "Calling Payment service ...");
+
+        String orderId = UUID.randomUUID().toString();
+        PaymentRequest paymentRequest = new PaymentRequest(orderId, address, card, customer, amount);
+        URI paymentUri = new ServiceUri(new Hostname("payment"), new Domain(""), "/paymentAuth").toUri();
+
+        PaymentResponse paymentResponse = httpPost(paymentUri, Entity.json(paymentRequest), PaymentResponse.class);
+        if (paymentResponse == null) {
+            throw new PaymentDeclinedException("Unable to parse authorisation packet");
+        }
+        if (!paymentResponse.isAuthorised()) {
+            throw new PaymentDeclinedException(paymentResponse.getMessage());
+        }
+
+        // create shipment
+        LOGGER.log(Level.INFO, "Creating Shipment ...");
+
+        String customerId = customer.getId();
+        URI shippingUri = new ServiceUri(new Hostname("shipping"), new Domain(""), "/shipping").toUri();
+
+        Shipment shipment = httpPost(shippingUri, Entity.json(new Shipment(orderId)), Shipment.class);
+        LOGGER.log(Level.INFO, "Created Shipment: " + shipment);
+
+        CustomerOrder order = new CustomerOrder(
+                orderId,
+                customerId,
+                customer,
+                address,
+                card,
+                items,
+                shipment,
+                Calendar.getInstance().getTime(),
+                amount);
+
+        orders.put(orderId, order);
+
+        LOGGER.log(Level.INFO, "Created Order: " + orderId);
+        return Response.status(CREATED).entity(order).build();
     }
 
     // helper methods
@@ -129,27 +154,25 @@ public class OrderResource {
         return amount;
     }
 
-    public<T> T httpGet(URI uri,Class<T>entityClass){
-        return client
+    private <T> T httpGet(URI uri, Class<T> responseClass){
+        return CLIENT
                 .target(uri)
                 .request(APPLICATION_JSON)
-                .get(entityClass);
+                .get(responseClass);
     }
 
-    public <T> Future<T> asyncGet(URI uri, Class<T> entityClass) {
-        return client
-                .target(uri)
-                .request(MediaType.APPLICATION_JSON)
-                .async()
-                .get(entityClass);
-    }
-
-    public Future<Response> asyncPost(URI uri, Entity<?> entity) {
-        return client
+    private <T> T httpGet(URI uri, GenericType<T> responseClass){
+        return CLIENT
                 .target(uri)
                 .request(APPLICATION_JSON)
-                .async()
-                .post(entity);
+                .get(responseClass);
+    }
+
+    private <T> T httpPost(URI uri, Entity<?> entity, Class<T> responseClass) {
+        return CLIENT
+                .target(uri)
+                .request(APPLICATION_JSON)
+                .post(entity, responseClass);
     }
 
     // helper classes

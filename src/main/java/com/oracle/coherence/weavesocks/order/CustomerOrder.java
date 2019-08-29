@@ -1,12 +1,13 @@
 package com.oracle.coherence.weavesocks.order;
 
+import java.io.Serializable;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 
 
-public class CustomerOrder {
+public class CustomerOrder implements Serializable, Comparable<CustomerOrder> {
 
     private String id;
 
@@ -40,6 +41,11 @@ public class CustomerOrder {
         this.shipment = shipment;
         this.date = date;
         this.total = total;
+    }
+
+    @Override
+    public int compareTo(CustomerOrder o) {
+        return date.compareTo(o.date) * -1;
     }
 
     @Override

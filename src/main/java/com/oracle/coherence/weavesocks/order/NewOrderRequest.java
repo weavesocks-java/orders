@@ -2,7 +2,7 @@ package com.oracle.coherence.weavesocks.order;
 
 import java.net.URI;
 
-public class NewOrderResource {
+public class NewOrderRequest {
 
     public URI customer;
     public URI address;
