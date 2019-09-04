@@ -1,11 +1,17 @@
 package com.oracle.coherence.weavesocks.order;
 
 import java.io.Serializable;
+import java.nio.IntBuffer;
 import java.util.Calendar;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
+import javax.json.bind.annotation.JsonbProperty;
+import javax.ws.rs.core.Link;
 
 public class CustomerOrder implements Serializable, Comparable<CustomerOrder> {
 
@@ -27,6 +33,8 @@ public class CustomerOrder implements Serializable, Comparable<CustomerOrder> {
 
     private float total;
 
+    private Map<String, Map<String, String>> links = new LinkedHashMap<>();
+
     public CustomerOrder() {
     }
 
@@ -41,6 +49,10 @@ public class CustomerOrder implements Serializable, Comparable<CustomerOrder> {
         this.shipment = shipment;
         this.date = date;
         this.total = total;
+    }
+
+    public void addLink(String name, Link link) {
+        this.links.put(name, Collections.singletonMap("href", link.getUri().toString()));
     }
 
     @Override
@@ -61,7 +73,7 @@ public class CustomerOrder implements Serializable, Comparable<CustomerOrder> {
                 '}';
     }
 
-// Crappy getter setters for Jackson
+    // Crappy getter setters for Jackson
 
     public String getId() {
         return id;
@@ -137,5 +149,14 @@ public class CustomerOrder implements Serializable, Comparable<CustomerOrder> {
 
     public void setTotal(float total) {
         this.total = total;
+    }
+
+    @JsonbProperty("_links")
+    public Map<String, Map<String, String>> getLinks() {
+        return links;
+    }
+
+    public void setLinks(Map<String, Map<String, String>> links) {
+        this.links = links;
     }
 }

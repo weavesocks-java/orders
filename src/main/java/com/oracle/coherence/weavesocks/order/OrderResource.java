@@ -34,9 +34,12 @@ import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.Entity;
 
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.GenericType;
+import javax.ws.rs.core.Link;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriInfo;
 
 import com.oracle.common.base.InverseComparator;
 import com.tangosol.net.NamedCache;
@@ -89,7 +92,7 @@ public class OrderResource {
     @POST
     @Consumes(APPLICATION_JSON)
     @Produces(APPLICATION_JSON)
-    public Response newOrder(NewOrderRequest request) {
+    public Response newOrder(@Context UriInfo uriInfo, NewOrderRequest request) {
         if (request.address == null || request.customer == null || request.card == null || request.items == null) {
             throw new InvalidOrderException("Invalid order request. Order requires customer, address, card and items.");
         }
@@ -127,6 +130,11 @@ public class OrderResource {
         Shipment shipment = httpPost(shippingUri, Entity.json(new Shipment(orderId)), Shipment.class);
         LOGGER.log(Level.INFO, "Created Shipment: " + shipment);
 
+        Link link = Link.fromMethod(OrderResource.class, "getOrder")
+                .baseUri("http://orders/orders/")
+                .rel("self")
+                .build(orderId);
+
         CustomerOrder order = new CustomerOrder(
                 orderId,
                 customerId,
@@ -137,6 +145,8 @@ public class OrderResource {
                 shipment,
                 Calendar.getInstance().getTime(),
                 amount);
+
+        order.addLink("self", link);
 
         orders.put(orderId, order);
 
