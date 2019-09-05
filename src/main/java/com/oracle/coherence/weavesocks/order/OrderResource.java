@@ -5,15 +5,9 @@ import java.net.URI;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -30,6 +24,7 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.Entity;
@@ -41,16 +36,14 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
-import com.oracle.common.base.InverseComparator;
 import com.tangosol.net.NamedCache;
 
 import com.tangosol.util.Filters;
-import com.tangosol.util.ValueExtractor;
-import com.tangosol.util.comparator.ExtractorComparator;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static javax.ws.rs.core.Response.Status.CREATED;
+import static javax.ws.rs.core.Response.Status.NOT_ACCEPTABLE;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 @ApplicationScoped
@@ -119,6 +112,7 @@ public class OrderResource {
         }
         if (!paymentResponse.isAuthorised()) {
             throw new PaymentDeclinedException(paymentResponse.getMessage());
+//            throw new PaymentException(paymentResponse.getMessage(), NOT_ACCEPTABLE);
         }
 
         // create shipment
@@ -249,15 +243,31 @@ public class OrderResource {
         }
     }
 
-    public class InvalidOrderException extends IllegalStateException {
+    public static class OrderException extends IllegalStateException {
+        public OrderException(String s) {
+            super(s);
+        }
+    }
+
+    public static class InvalidOrderException extends OrderException {
         public InvalidOrderException(String s) {
             super(s);
         }
     }
 
-    public class PaymentDeclinedException extends IllegalStateException {
+    public static class PaymentDeclinedException extends OrderException {
         public PaymentDeclinedException(String s) {
             super(s);
+        }
+    }
+
+    public class PaymentException extends WebApplicationException {
+        public PaymentException(String message, Response.Status status) {
+            super(Response
+                  .status(status)
+                  .entity(Collections.singletonMap("message", message))
+                  .type(APPLICATION_JSON)
+                  .build());
         }
     }
 }
