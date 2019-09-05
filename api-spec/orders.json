@@ -5,9 +5,9 @@
         "title": "Orders",
         "description": "Service for processing orders",
         "license": {
-	    "name": "MIT",
-	    "url": "http://github.com/gruntjs/grunt/blob/master/LICENSE-MIT"
-	}
+            "name": "MIT",
+            "url": "http://github.com/gruntjs/grunt/blob/master/LICENSE-MIT"
+        }
     },
     "host": "orders",
     "basePath": "/",
