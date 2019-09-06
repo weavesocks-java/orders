@@ -32,7 +32,6 @@ import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.Link;
-import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
@@ -43,7 +42,6 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static javax.ws.rs.core.Response.Status.CREATED;
-import static javax.ws.rs.core.Response.Status.NOT_ACCEPTABLE;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 @ApplicationScoped
@@ -112,7 +110,6 @@ public class OrderResource {
         }
         if (!paymentResponse.isAuthorised()) {
             throw new PaymentDeclinedException(paymentResponse.getMessage());
-//            throw new PaymentException(paymentResponse.getMessage(), NOT_ACCEPTABLE);
         }
 
         // create shipment
@@ -258,16 +255,6 @@ public class OrderResource {
     public static class PaymentDeclinedException extends OrderException {
         public PaymentDeclinedException(String s) {
             super(s);
-        }
-    }
-
-    public class PaymentException extends WebApplicationException {
-        public PaymentException(String message, Response.Status status) {
-            super(Response
-                  .status(status)
-                  .entity(Collections.singletonMap("message", message))
-                  .type(APPLICATION_JSON)
-                  .build());
         }
     }
 }
