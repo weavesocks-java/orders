@@ -3,9 +3,13 @@ package com.oracle.coherence.weavesocks.order;
 import java.io.Serializable;
 import java.util.Objects;
 
+import com.oracle.io.pof.annotation.Portable;
+import com.oracle.io.pof.annotation.PortableType;
+
+@PortableType(id = 1)
 public class Shipment implements Serializable {
-    private String id;
-    private String trackingNumber;
+    @Portable private String id;
+    @Portable private String trackingNumber;
 
     public Shipment() {
     }

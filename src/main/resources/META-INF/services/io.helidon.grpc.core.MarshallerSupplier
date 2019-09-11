@@ -1,0 +1,2 @@
+com.oracle.coherence.weavesocks.order.PaymentService$Marshaller
+com.oracle.coherence.weavesocks.order.ShippingService$Marshaller

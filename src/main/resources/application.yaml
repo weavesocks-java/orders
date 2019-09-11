@@ -1,0 +1,8 @@
+grpc:
+  channels:
+    payment:
+      host: payment
+      port: 1408
+    shipping:
+      host: shipping
+      port: 1408

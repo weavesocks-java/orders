@@ -24,7 +24,6 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 
 import javax.ws.rs.QueryParam;
-import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.Entity;
@@ -34,6 +33,9 @@ import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.Link;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
+
+import io.helidon.microprofile.grpc.client.GrpcChannel;
+import io.helidon.microprofile.grpc.client.GrpcServiceProxy;
 
 import com.tangosol.net.NamedCache;
 import com.tangosol.util.Filters;
@@ -52,10 +54,14 @@ public class OrderResource {
     private NamedCache<String, CustomerOrder> orders;
 
     @Inject
-    private PaymentServiceClient paymentService;
+    @GrpcChannel(name = "payment")
+    @GrpcServiceProxy
+    private PaymentService paymentService;
 
     @Inject
-    private ShippingServiceClient shippingService;
+    @GrpcChannel(name = "shipping")
+    @GrpcServiceProxy
+    private ShippingService shippingService;
 
     private static final Logger LOGGER = Logger.getLogger(OrderResource.class.getName());
     private static final Client CLIENT = ClientBuilder.newClient();
@@ -103,27 +109,38 @@ public class OrderResource {
 
         float amount = calculateTotal(items);
 
-        // Call payment service to make sure they've paid
-        LOGGER.log(Level.INFO, "Calling Payment service ...");
-
         String orderId = UUID.randomUUID().toString();
-        PaymentRequest paymentRequest = new PaymentRequest(orderId, address, card, customer, amount);
-        PaymentResponse paymentResponse = paymentService.authorize(paymentRequest);
+        try {
+            // Call payment service to make sure they've paid
+            PaymentRequest paymentRequest = new PaymentRequest(orderId, address, card, customer, amount);
+            LOGGER.log(Level.INFO, "Calling Payment service: " + paymentRequest);
 
-        if (paymentResponse == null) {
-            throw new PaymentDeclinedException("Unable to parse authorisation packet");
+            PaymentResponse paymentResponse = paymentService.authorize(paymentRequest);
+
+            LOGGER.log(Level.INFO, "Received " + paymentResponse);
+            if (paymentResponse == null) {
+                throw new PaymentDeclinedException("Unable to parse authorisation packet");
+            }
+            if (!paymentResponse.isAuthorised()) {
+                throw new PaymentDeclinedException(paymentResponse.getMessage());
+            }
+        } catch (Throwable t) {
+            LOGGER.log(Level.SEVERE, "Payment service call failed: ", t);
+            throw new OrderException(t.getMessage());
         }
-        if (!paymentResponse.isAuthorised()) {
-            throw new PaymentDeclinedException(paymentResponse.getMessage());
+
+        Shipment shipment = new Shipment(orderId);
+        try {
+            // create shipment
+            LOGGER.log(Level.INFO, "Calling Shipping service: " + shipment);
+
+            shipment = shippingService.ship(shipment);
+
+            LOGGER.log(Level.INFO, "Created Shipment: " + shipment);
+        } catch (Throwable t) {
+            LOGGER.log(Level.SEVERE, "Shipping service call failed: ", t);
+            throw new OrderException(t.getMessage());
         }
-
-        // create shipment
-        LOGGER.log(Level.INFO, "Creating Shipment ...");
-
-        String customerId = customer.getId();
-        Shipment shipment = shippingService.ship(new Shipment(orderId));
-
-        LOGGER.log(Level.INFO, "Created Shipment: " + shipment);
 
         Link link = Link.fromMethod(OrderResource.class, "getOrder")
                 .baseUri("http://orders/orders/")
@@ -132,7 +149,7 @@ public class OrderResource {
 
         CustomerOrder order = new CustomerOrder(
                 orderId,
-                customerId,
+                customer.getId(),
                 customer,
                 address,
                 card,
@@ -171,13 +188,6 @@ public class OrderResource {
                 .target(uri)
                 .request(APPLICATION_JSON)
                 .get(responseClass);
-    }
-
-    private <T> T httpPost(URI uri, Entity<?> entity, Class<T> responseClass) {
-        return CLIENT
-                .target(uri)
-                .request(APPLICATION_JSON)
-                .post(entity, responseClass);
     }
 
     // helper classes

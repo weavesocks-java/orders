@@ -1,10 +1,13 @@
 package com.oracle.coherence.weavesocks.order;
 
-public class PaymentResponse {
-    private boolean authorised = false;
-    private String  message;
+import com.oracle.io.pof.annotation.Portable;
+import com.oracle.io.pof.annotation.PortableType;
 
-    // For jackson
+@PortableType(id = 2)
+public class PaymentResponse {
+    @Portable private boolean authorised = false;
+    @Portable private String  message;
+
     public PaymentResponse() {
     }
 

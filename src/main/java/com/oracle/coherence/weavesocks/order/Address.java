@@ -2,15 +2,19 @@ package com.oracle.coherence.weavesocks.order;
 
 import java.io.Serializable;
 
+import com.oracle.io.pof.annotation.Portable;
+import com.oracle.io.pof.annotation.PortableType;
+
+@PortableType(id = 3)
 public class Address implements Serializable {
 
-    private String id;
+    @Portable private String id;
 
-    private String number;
-    private String street;
-    private String city;
-    private String postcode;
-    private String country;
+    @Portable private String number;
+    @Portable private String street;
+    @Portable private String city;
+    @Portable private String postcode;
+    @Portable private String country;
 
     public Address() {
     }

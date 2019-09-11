@@ -1,13 +1,15 @@
 package com.oracle.coherence.weavesocks.order;
 
-import java.util.UUID;
+import com.oracle.io.pof.annotation.Portable;
+import com.oracle.io.pof.annotation.PortableType;
 
+@PortableType(id = 1)
 public class PaymentRequest {
-    private String orderId;
-    private Address address;
-    private Card card;
-    private Customer customer;
-    private float amount;
+    @Portable private String orderId;
+    @Portable private Address address;
+    @Portable private Card card;
+    @Portable private Customer customer;
+    @Portable private float amount;
 
     public PaymentRequest() {
     }
@@ -27,13 +29,11 @@ public class PaymentRequest {
                 ", address=" + address +
                 ", card=" + card +
                 ", customer=" + customer +
+                ", amount=" + amount +
                 '}';
     }
 
     public String getOrderId() {
-        if (orderId == null) {
-            orderId = UUID.randomUUID().toString();
-        }
         return orderId;
     }
 
