@@ -36,8 +36,8 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
 import com.tangosol.net.NamedCache;
-
 import com.tangosol.util.Filters;
+
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
@@ -50,6 +50,12 @@ public class OrderResource {
 
     @Inject
     private NamedCache<String, CustomerOrder> orders;
+
+    @Inject
+    private PaymentServiceClient paymentService;
+
+    @Inject
+    private ShippingServiceClient shippingService;
 
     private static final Logger LOGGER = Logger.getLogger(OrderResource.class.getName());
     private static final Client CLIENT = ClientBuilder.newClient();
@@ -102,9 +108,8 @@ public class OrderResource {
 
         String orderId = UUID.randomUUID().toString();
         PaymentRequest paymentRequest = new PaymentRequest(orderId, address, card, customer, amount);
-        URI paymentUri = new ServiceUri(new Hostname("payment"), new Domain(""), "/paymentAuth").toUri();
+        PaymentResponse paymentResponse = paymentService.authorize(paymentRequest);
 
-        PaymentResponse paymentResponse = httpPost(paymentUri, Entity.json(paymentRequest), PaymentResponse.class);
         if (paymentResponse == null) {
             throw new PaymentDeclinedException("Unable to parse authorisation packet");
         }
@@ -116,9 +121,8 @@ public class OrderResource {
         LOGGER.log(Level.INFO, "Creating Shipment ...");
 
         String customerId = customer.getId();
-        URI shippingUri = new ServiceUri(new Hostname("shipping"), new Domain(""), "/shipping").toUri();
+        Shipment shipment = shippingService.ship(new Shipment(orderId));
 
-        Shipment shipment = httpPost(shippingUri, Entity.json(new Shipment(orderId)), Shipment.class);
         LOGGER.log(Level.INFO, "Created Shipment: " + shipment);
 
         Link link = Link.fromMethod(OrderResource.class, "getOrder")

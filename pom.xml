@@ -64,6 +64,11 @@
             <version>${helidon.version}</version>
         </dependency>
         <dependency>
+            <groupId>io.helidon.microprofile.grpc</groupId>
+            <artifactId>helidon-microprofile-grpc-client</artifactId>
+            <version>${helidon.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.glassfish.jersey.media</groupId>
             <artifactId>jersey-media-json-binding</artifactId>
         </dependency>
@@ -203,7 +208,7 @@
                 </executions>
                 <configuration>
                     <repository>weavesocks/${project.artifactId}</repository>
-                    <tag>1.0.0</tag>
+                    <tag>2.0.0</tag>
                     <useMavenSettingsForAuth>true</useMavenSettingsForAuth>
                 </configuration>
             </plugin>
