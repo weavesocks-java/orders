@@ -1,5 +1,6 @@
 package com.oracle.coherence.weavesocks.order;
 
+import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Named;
 
 import io.helidon.grpc.core.MarshallerSupplier;
@@ -22,6 +23,7 @@ public interface PaymentService {
 
     // ---- inner class: Marshaller -----------------------------------------
 
+    @ApplicationScoped
     @Named("payment")
     class Marshaller implements MarshallerSupplier {
 
