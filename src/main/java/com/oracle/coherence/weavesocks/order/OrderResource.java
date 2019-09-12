@@ -109,7 +109,7 @@ public class OrderResource {
 
         float amount = calculateTotal(items);
 
-        String orderId = UUID.randomUUID().toString();
+        String orderId = createOrderId();
         try {
             // Call payment service to make sure they've paid
             PaymentRequest paymentRequest = new PaymentRequest(orderId, address, card, customer, amount);
@@ -164,6 +164,10 @@ public class OrderResource {
 
         LOGGER.log(Level.INFO, "Created Order: " + orderId);
         return Response.status(CREATED).entity(order).build();
+    }
+
+    private String createOrderId() {
+        return UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 
     // helper methods
