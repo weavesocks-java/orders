@@ -7,20 +7,6 @@
 
     <helidon:http/>
 
-    <helidon:http id="management">
-        <port>30000</port>
-        <applications>
-            <application>com.tangosol.coherence.management.internal.ManagementResourceConfig</application>
-        </applications>
-    </helidon:http>
-
-    <helidon:http id="metrics">
-        <port>9612</port>
-        <applications>
-            <application context="/metrics">com.tangosol.coherence.metrics.internal.MetricsResourceConfig</application>
-        </applications>
-    </helidon:http>
-
     <caching-scheme-mapping>
         <cache-mapping>
             <cache-name>orders</cache-name>
