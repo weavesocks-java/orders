@@ -53,8 +53,13 @@ public class Order implements Serializable, Comparable<Order> {
     }
 
     public void setStatus(Status status) {
+        this.status = status;
+    }
+
+    public void execute() {
         switch (status) {
         case CREATED:
+            // TODO: submit payment request to topic
             setPayment(new Payment(true, "Payment processed"));
             break;
         case PAID:
@@ -64,7 +69,6 @@ public class Order implements Serializable, Comparable<Order> {
         case SHIPPED:
             // fall through
         }
-        this.status = status;
     }
 
     void addLink(String name, Link link) {
