@@ -30,9 +30,8 @@ public interface ShippingService {
         private final MethodDescriptor.Marshaller<?> marshaller;
 
         public Marshaller() {
-            SimplePofContext ctx = new SimplePofContext();
-            ctx.registerUserType(1, Shipment.class, new PortableTypeSerializer(1, Shipment.class));
-
+            SimplePofContext ctx = new SimplePofContext()
+                    .registerPortableType(Shipment.class);
             marshaller = new PofMarshaller(ctx);
         }
 

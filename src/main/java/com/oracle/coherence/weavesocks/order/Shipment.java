@@ -18,6 +18,11 @@ public class Shipment implements Serializable {
         this.id = id;
     }
 
+    public Shipment(String id, String trackingNumber) {
+        this.id = id;
+        this.trackingNumber = trackingNumber;
+    }
+
     public String getId() {
         return id;
     }

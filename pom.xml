@@ -230,7 +230,7 @@
                 </executions>
                 <configuration>
                     <repository>weavesocks/${project.artifactId}</repository>
-                    <tag>2.0.0</tag>
+                    <tag>3.0.0</tag>
                     <useMavenSettingsForAuth>true</useMavenSettingsForAuth>
                 </configuration>
             </plugin>
