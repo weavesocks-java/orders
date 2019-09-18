@@ -7,8 +7,8 @@ import com.oracle.io.pof.annotation.PortableType;
 
 @PortableType(id = 2)
 public class Payment implements Serializable {
-    @Portable boolean authorised;
-    @Portable String  message;
+    @Portable public boolean authorised;
+    @Portable public String  message;
 
     public Payment(boolean authorised, String message) {
         this.authorised = authorised;

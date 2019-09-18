@@ -22,7 +22,7 @@ public class NewOrderRequest {
     }
 
     public String cartId() {
-        return items.getPath().split("/")[1];
+        return items.getPath().split("/")[2];
     }
 
     @Override

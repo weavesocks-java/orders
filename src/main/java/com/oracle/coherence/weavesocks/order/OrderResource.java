@@ -1,17 +1,10 @@
 package com.oracle.coherence.weavesocks.order;
 
-import java.net.URI;
-
-import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -27,11 +20,8 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 
 import javax.ws.rs.QueryParam;
-import javax.ws.rs.client.Client;
-import javax.ws.rs.client.ClientBuilder;
 
 import javax.ws.rs.core.Context;
-import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.Link;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
@@ -53,6 +43,7 @@ import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 @ApplicationScoped
 @Path("/orders")
 public class OrderResource {
+    private static final Logger LOGGER = Logger.getLogger(OrderResource.class.getName());
 
     @Inject
     private NamedCache<String, Order> orders;
@@ -76,9 +67,6 @@ public class OrderResource {
     @GrpcChannel(name = "shipping")
     @GrpcServiceProxy
     private ShippingService shippingService;
-
-    private static final Logger LOGGER = Logger.getLogger(OrderResource.class.getName());
-    private static final Client CLIENT = ClientBuilder.newClient();
 
     @ConfigProperty(name = "http.timeout")
     private long timeout;
@@ -115,12 +103,14 @@ public class OrderResource {
         }
         LOGGER.log(Level.INFO, "Processing new order: " + request);
 
-        CompletableFuture<CartService.Cart> cart     = cartService.getCart(request.cartId());
-        CompletableFuture<CustomerResponse> customer = customerService.getCustomer(new CustomerRequest(request));
+        CompletableFuture<CartService.Cart> cartFuture     = cartService.getCart(request.cartId());
+        CompletableFuture<CustomerResponse> customerFuture = customerService.getCustomer(new CustomerRequest(request));
 
-        CompletableFuture.allOf(customer).join();
-        LOGGER.log(Level.INFO, "Customer: " + customer.get());
-        LOGGER.log(Level.INFO, "Cart: " + cart.get());
+        CustomerResponse customer = customerFuture.get();
+        LOGGER.log(Level.INFO, "Customer: " + customer);
+
+        CartService.Cart cart = cartFuture.get();
+        LOGGER.log(Level.INFO, "Cart: " + cart);
 
         String orderId = createOrderId();
 
@@ -129,16 +119,16 @@ public class OrderResource {
                 .rel("self")
                 .build(orderId);
 
-        CustomerResponse customerResponse = customer.get();
         Order order = new Order(
                 orderId,
-                customerResponse.customer,
-                customerResponse.address,
-                customerResponse.card,
-                cart.get().items);
+                customer.customer,
+                customer.address,
+                customer.card,
+                cart.items);
 
         order.addLink("self", link);
 
+        // TODO: remove once we have topics and actor interceptor working
         try {
             // Call payment service to make sure they've paid
             PaymentRequest paymentRequest = new PaymentRequest(order);

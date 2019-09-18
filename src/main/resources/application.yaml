@@ -1,10 +1,22 @@
 grpc:
   channels:
+#    carts:
+#      host: weavesocks-carts-grpc
+#    user:
+#      host: weavesocks-user-grpc
+#    payment:
+#      host: weavesocks-payment-grpc
+#    shipping:
+#      host: weavesocks-shipping-grpc
     carts:
-      host: weavesocks-carts-grpc
+      host: localhost
+      port: 8002
     user:
-      host: weavesocks-user-grpc
+      host: localhost
+      port: 8003
     payment:
-      host: weavesocks-payment-grpc
+      host: localhost
+      port: 8004
     shipping:
-      host: weavesocks-shipping-grpc
+      host: localhost
+      port: 8005
