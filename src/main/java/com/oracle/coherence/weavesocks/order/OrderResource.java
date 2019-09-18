@@ -59,14 +59,10 @@ public class OrderResource {
     private CartService cartService;
 
     @Inject
-    @GrpcChannel(name = "payment")
-    @GrpcServiceProxy
-    private PaymentService paymentService;
+    private PaymentSubscriber paymentSubscriber;
 
     @Inject
-    @GrpcChannel(name = "shipping")
-    @GrpcServiceProxy
-    private ShippingService shippingService;
+    private ShipmentSubscriber shipmentSubscriber;
 
     @ConfigProperty(name = "http.timeout")
     private long timeout;
@@ -127,40 +123,6 @@ public class OrderResource {
                 cart.items);
 
         order.addLink("self", link);
-
-        // TODO: remove once we have topics and actor interceptor working
-        try {
-            // Call payment service to make sure they've paid
-            PaymentRequest paymentRequest = new PaymentRequest(order);
-            LOGGER.log(Level.INFO, "Calling Payment service: " + paymentRequest);
-
-            Payment payment = paymentService.authorize(paymentRequest);
-            order.setPayment(payment);
-            LOGGER.log(Level.INFO, "Received " + payment);
-            if (payment == null) {
-                throw new PaymentDeclinedException("Unable to parse authorisation packet");
-            }
-            if (!payment.authorised) {
-                throw new PaymentDeclinedException(payment.message);
-            }
-        } catch (Throwable t) {
-            LOGGER.log(Level.SEVERE, "Payment service call failed: ", t);
-            throw new OrderException(t.getMessage());
-        }
-
-        Shipment shipment = new Shipment(orderId);
-        try {
-            // create shipment
-            LOGGER.log(Level.INFO, "Calling Shipping service: " + shipment);
-
-            shipment = shippingService.ship(shipment);
-            order.setShipment(shipment);
-
-            LOGGER.log(Level.INFO, "Created Shipment: " + shipment);
-        } catch (Throwable t) {
-            LOGGER.log(Level.SEVERE, "Shipping service call failed: ", t);
-            throw new OrderException(t.getMessage());
-        }
 
         orders.put(orderId, order);
 

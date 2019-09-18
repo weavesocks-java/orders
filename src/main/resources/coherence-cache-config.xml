@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 
 <cache-config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xmlns="http://xmlns.oracle.com/coherence/coherence-cache-config"
-        xmlns:helidon="class://com.oracle.coherence.helidon.HelidonNamespaceHandler"
-        xsi:schemaLocation="http://xmlns.oracle.com/coherence/coherence-cache-config coherence-cache-config.xsd">
+              xmlns="http://xmlns.oracle.com/coherence/coherence-cache-config"
+              xmlns:helidon="class://com.oracle.coherence.helidon.HelidonNamespaceHandler"
+              xsi:schemaLocation="http://xmlns.oracle.com/coherence/coherence-cache-config coherence-cache-config.xsd">
 
     <helidon:http/>
 
@@ -11,8 +11,22 @@
         <cache-mapping>
             <cache-name>orders</cache-name>
             <scheme-name>orders</scheme-name>
+            <interceptors>
+              <interceptor>
+                <instance>
+                  <class-name>com.oracle.coherence.weavesocks.order.OrderEventInterceptor</class-name>
+                </instance>
+              </interceptor>
+            </interceptors>
         </cache-mapping>
     </caching-scheme-mapping>
+
+    <topic-scheme-mapping>
+      <topic-mapping>
+        <topic-name>orders-topic</topic-name>
+        <scheme-name>topic-scheme</scheme-name>
+      </topic-mapping>
+    </topic-scheme-mapping>
 
     <caching-schemes>
         <distributed-scheme>
@@ -25,6 +39,13 @@
             </backing-map-scheme>
             <autostart>true</autostart>
         </distributed-scheme>
+
+        <paged-topic-scheme>
+          <scheme-name>topic-scheme</scheme-name>
+          <service-name>OrdersTopicService</service-name>
+          <autostart>true</autostart>
+        </paged-topic-scheme>
+
     </caching-schemes>
 
 </cache-config>

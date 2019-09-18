@@ -1,5 +1,7 @@
 package com.oracle.coherence.weavesocks.order;
 
+import com.tangosol.net.topic.Publisher;
+
 import java.io.Serializable;
 import java.util.Calendar;
 import java.util.Collection;
@@ -8,11 +10,16 @@ import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.json.bind.annotation.JsonbProperty;
 import javax.ws.rs.core.Link;
 
 public class Order implements Serializable, Comparable<Order> {
+
+    private static final Logger LOGGER = Logger.getLogger(Order.class.getName());
 
     private String id;
     private String customerId;
@@ -26,6 +33,7 @@ public class Order implements Serializable, Comparable<Order> {
     private float total;
     private Status status;
     private Map<String, Map<String, String>> links = new LinkedHashMap<>();
+    private transient Supplier<Publisher<Order>> supplierPublisher;
 
     public Order() {
     }
@@ -42,14 +50,16 @@ public class Order implements Serializable, Comparable<Order> {
         this.status = Status.CREATED;
     }
 
-    public void setPayment(Payment payment) {
+    public Order setPayment(Payment payment) {
         this.payment = payment;
-        setStatus(payment.authorised ? Status.PAID : Status.PAYMENT_FAILED);
+        setStatus(payment != null && payment.authorised ? Status.PAID : Status.PAYMENT_FAILED);
+        return this;
     }
 
-    public void setShipment(Shipment shipment) {
+    public Order setShipment(Shipment shipment) {
         this.shipment = shipment;
         setStatus(Status.SHIPPED);
+        return this;
     }
 
     public void setStatus(Status status) {
@@ -58,16 +68,14 @@ public class Order implements Serializable, Comparable<Order> {
 
     public void execute() {
         switch (status) {
-        case CREATED:
-            // TODO: submit payment request to topic
-            setPayment(new Payment(true, "Payment processed"));
-            break;
-        case PAID:
-            setShipment(new Shipment(id, id));
-            break;
-        case PAYMENT_FAILED:
-        case SHIPPED:
-            // fall through
+            case CREATED:
+            case PAID:
+                LOGGER.log(Level.INFO, "Publishing order: " + this);
+                getPublisher().send(this);
+                break;
+            case PAYMENT_FAILED:
+            case SHIPPED:
+                // terminal state
         }
     }
 
@@ -192,6 +200,14 @@ public class Order implements Serializable, Comparable<Order> {
 
     public Status getStatus() {
         return status;
+    }
+
+    public Publisher<Order> getPublisher() {
+        return supplierPublisher.get();
+    }
+
+    public void setPublisherSupplier(Supplier<Publisher<Order>> supplier) {
+        supplierPublisher = supplier;
     }
 
     public enum Status {
