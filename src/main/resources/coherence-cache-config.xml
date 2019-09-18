@@ -24,7 +24,7 @@
     <topic-scheme-mapping>
       <topic-mapping>
         <topic-name>orders-topic</topic-name>
-        <scheme-name>topic-scheme</scheme-name>
+        <scheme-name>orders-topic</scheme-name>
       </topic-mapping>
     </topic-scheme-mapping>
 
@@ -41,8 +41,8 @@
         </distributed-scheme>
 
         <paged-topic-scheme>
-          <scheme-name>topic-scheme</scheme-name>
-          <service-name>OrdersTopicService</service-name>
+          <scheme-name>orders-topic</scheme-name>
+          <service-name>OrdersTopic</service-name>
           <autostart>true</autostart>
         </paged-topic-scheme>
 

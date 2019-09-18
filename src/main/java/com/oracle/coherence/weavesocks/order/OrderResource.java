@@ -8,6 +8,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.annotation.PostConstruct;
 import javax.enterprise.context.ApplicationScoped;
 
 import javax.inject.Inject;
@@ -67,6 +68,12 @@ public class OrderResource {
     @ConfigProperty(name = "http.timeout")
     private long timeout;
 
+    @PostConstruct
+    private void init() {
+        paymentSubscriber.ensureRunning();
+        shipmentSubscriber.ensureRunning();
+    }
+
     @GET
     @Path("search/customerId")
     @Produces(APPLICATION_JSON)
@@ -103,10 +110,7 @@ public class OrderResource {
         CompletableFuture<CustomerResponse> customerFuture = customerService.getCustomer(new CustomerRequest(request));
 
         CustomerResponse customer = customerFuture.get();
-        LOGGER.log(Level.INFO, "Customer: " + customer);
-
         CartService.Cart cart = cartFuture.get();
-        LOGGER.log(Level.INFO, "Cart: " + cart);
 
         String orderId = createOrderId();
 
@@ -142,12 +146,6 @@ public class OrderResource {
 
     public static class InvalidOrderException extends OrderException {
         public InvalidOrderException(String s) {
-            super(s);
-        }
-    }
-
-    public static class PaymentDeclinedException extends OrderException {
-        public PaymentDeclinedException(String s) {
             super(s);
         }
     }

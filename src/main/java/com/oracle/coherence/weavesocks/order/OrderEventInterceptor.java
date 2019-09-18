@@ -1,16 +1,16 @@
 package com.oracle.coherence.weavesocks.order;
 
-import com.tangosol.net.Session;
 import com.tangosol.net.events.EventInterceptor;
 import com.tangosol.net.events.annotation.Interceptor;
 import com.tangosol.net.events.partition.cache.EntryEvent;
 import com.tangosol.net.events.partition.cache.EntryEvent.Type;
-import com.tangosol.net.topic.Publisher;
 import com.tangosol.util.BinaryEntry;
 
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import javax.enterprise.context.spi.CreationalContext;
+import javax.enterprise.inject.spi.AnnotatedType;
+import javax.enterprise.inject.spi.BeanManager;
+import javax.enterprise.inject.spi.CDI;
+import javax.enterprise.inject.spi.InjectionTarget;
 
 /**
  * OrderEventInterceptor is responsible for ...
@@ -19,29 +19,24 @@ import java.util.logging.Logger;
  */
 @Interceptor(entryEvents = {Type.INSERTED, Type.UPDATED})
 public class OrderEventInterceptor
-        implements EventInterceptor<EntryEvent<String, Order>>
-    {
+        implements EventInterceptor<EntryEvent<String, Order>> {
     @Override
     public void onEvent(EntryEvent<String, Order> entryEvent) {
         for (BinaryEntry<String, Order> binEntry : entryEvent.getEntrySet()) {
-            Order order = binEntry.getValue();
-            order.setPublisherSupplier(() -> ensurePublisher());
-
+            Order order = inject(binEntry.getValue());
             order.execute();
         }
     }
 
-    protected Publisher<Order> ensurePublisher() {
-        Publisher publisher;
-
-        while ((publisher = atomicPublisher.get()) == null) {
-            atomicPublisher.compareAndSet(null, Session.create().getTopic("orders-topic").createPublisher());
-        }
-
-        return publisher;
+    @SuppressWarnings("unchecked")
+    private <T> T inject(T o) {
+        BeanManager bm = CDI.current().getBeanManager();
+        Class<T> clz = (Class<T>) o.getClass();
+        AnnotatedType<T> annotatedType = bm.createAnnotatedType(clz);
+        InjectionTarget<T> injectionTarget = bm.createInjectionTarget(annotatedType);
+        CreationalContext<T> context = bm.createCreationalContext(null);
+        injectionTarget.inject(o, context);
+        injectionTarget.postConstruct(o);
+        return o;
     }
-
-    protected AtomicReference<Publisher> atomicPublisher = new AtomicReference<>();
-
-    private static final Logger LOGGER = Logger.getLogger(OrderEventInterceptor.class.getName());
-    }
+}

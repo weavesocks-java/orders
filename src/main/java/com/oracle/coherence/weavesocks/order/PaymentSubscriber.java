@@ -1,11 +1,8 @@
 package com.oracle.coherence.weavesocks.order;
 
-import com.tangosol.net.CacheFactory;
 import com.tangosol.net.NamedCache;
 import com.tangosol.net.Session;
-import com.tangosol.net.events.EventInterceptor;
-import com.tangosol.net.events.annotation.Interceptor;
-import com.tangosol.net.events.application.LifecycleEvent;
+import com.tangosol.net.topic.NamedTopic;
 import com.tangosol.net.topic.Subscriber;
 import com.tangosol.util.Filters;
 import io.helidon.microprofile.grpc.client.GrpcChannel;
@@ -13,13 +10,11 @@ import io.helidon.microprofile.grpc.client.GrpcServiceProxy;
 
 import javax.annotation.PostConstruct;
 import javax.enterprise.context.ApplicationScoped;
-import javax.enterprise.context.Initialized;
 import javax.inject.Inject;
-import javax.inject.Singleton;
+
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -31,13 +26,15 @@ import java.util.logging.Logger;
 @ApplicationScoped
 public class PaymentSubscriber
         implements Runnable {
-
-    protected AtomicReference<Subscriber> atomicSubscriber = new AtomicReference<>();
-
-    protected Session session;
+    private static final Logger LOGGER = Logger.getLogger(PaymentSubscriber.class.getName());
+    private static final ExecutorService EXECUTOR = Executors.newFixedThreadPool(1);
 
     @Inject
     private NamedCache<String, Order> orders;
+
+    @Inject
+    private NamedTopic<Order> ordersTopic;
+    private Subscriber<Order> subscriber;
 
     @Inject
     @GrpcChannel(name = "payment")
@@ -48,29 +45,38 @@ public class PaymentSubscriber
     }
 
     // constructor for testing
-    public PaymentSubscriber(Session session, NamedCache<String, Order> orders, PaymentService service) {
-        this.session = session;
+    PaymentSubscriber(NamedCache<String, Order> orders, NamedTopic<Order> ordersTopic, PaymentService service) {
         this.orders = orders;
+        this.ordersTopic = ordersTopic;
         this.paymentService = service;
 
         ensureRunning();
     }
 
+
+    @SuppressWarnings("unchecked")
+    @PostConstruct
+    protected void ensureRunning() {
+        LOGGER.info("Configuring PaymentSubscriber");
+        subscriber = ordersTopic.createSubscriber(
+                Subscriber.Name.of("payment"),
+                Subscriber.Filtered.by(Filters.equal(Order::getStatus, Order.Status.CREATED)));
+        EXECUTOR.submit(this);
+    }
+
     @Override
     public void run() {
-        try (Subscriber<Order> subscriber = ensureSubscriber()) {
+        LOGGER.info("Running PaymentSubscriber");
+        try (Subscriber<Order> subscriber = this.subscriber) {
             try {
                 while (!Thread.currentThread().isInterrupted()) {
-                    LOGGER.info("Waiting for created orders");
+                    LOGGER.info("Waiting for CREATED orders");
                     Subscriber.Element<Order> element = subscriber.receive().get();
 
                     Order order = element == null ? null : element.getValue();
-
+                    LOGGER.info("PaymentSubscriber| Order received: " + order);
                     if (order != null) {
-
-                        // call payment service
                         try {
-                            // Call payment service to make sure they've paid
                             PaymentRequest paymentRequest = new PaymentRequest(order);
                             LOGGER.log(Level.INFO, "Calling Payment service: " + paymentRequest);
 
@@ -81,8 +87,11 @@ public class PaymentSubscriber
                             orders.invoke(order.getId(), entry ->
                                     entry.setValue(entry.getValue().setPayment(payment)));
 
+                            LOGGER.log(Level.INFO, "Updated order: " + orders.get(order.getId()));
                         } catch (Throwable t) {
                             LOGGER.log(Level.SEVERE, "Payment service call failed: ", t);
+                            orders.invoke(order.getId(), entry ->
+                                    entry.setValue(entry.getValue().setStatus(Order.Status.PAYMENT_FAILED)));
                         }
                     }
                 }
@@ -94,34 +103,4 @@ public class PaymentSubscriber
             LOGGER.log(Level.SEVERE, "PaymentSubscriber was interrupted");
         }
     }
-
-    @PostConstruct
-    protected void ensureRunning() {
-        POOL.submit(this);
-        if (session == null) {
-            session = SessionFactory.ensureSession();
-        }
-    }
-
-    protected Subscriber<Order> ensureSubscriber() {
-        Subscriber subscriber;
-        while ((subscriber = atomicSubscriber.get()) == null) {
-            atomicSubscriber.compareAndSet(null, createSubscriber(session));
-        }
-        return subscriber;
-    }
-
-    protected static Subscriber.Option[] createSubscriptionOptions() {
-        return new Subscriber.Option[] {
-                Subscriber.Name.of("payment"),
-                Subscriber.Filtered.by(Filters.equal(Order::getStatus, Order.Status.CREATED))};
-    }
-
-    public static Subscriber<Order> createSubscriber(Session session) {
-        return session.getTopic("orders-topic").createSubscriber(createSubscriptionOptions());
-    }
-
-
-    public static final Logger LOGGER = Logger.getLogger(PaymentSubscriber.class.getName());
-    public static final ExecutorService POOL = Executors.newFixedThreadPool(1);
 }

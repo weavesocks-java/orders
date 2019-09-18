@@ -10,10 +10,10 @@ import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.inject.Inject;
 import javax.json.bind.annotation.JsonbProperty;
 import javax.ws.rs.core.Link;
 
@@ -33,7 +33,9 @@ public class Order implements Serializable, Comparable<Order> {
     private float total;
     private Status status;
     private Map<String, Map<String, String>> links = new LinkedHashMap<>();
-    private transient Supplier<Publisher<Order>> supplierPublisher;
+
+    @Inject
+    private transient Publisher<Order> publisher;
 
     public Order() {
     }
@@ -62,8 +64,9 @@ public class Order implements Serializable, Comparable<Order> {
         return this;
     }
 
-    public void setStatus(Status status) {
+    public Order setStatus(Status status) {
         this.status = status;
+        return this;
     }
 
     public void execute() {
@@ -71,9 +74,10 @@ public class Order implements Serializable, Comparable<Order> {
             case CREATED:
             case PAID:
                 LOGGER.log(Level.INFO, "Publishing order: " + this);
-                getPublisher().send(this);
+                publisher.send(this);
                 break;
             case PAYMENT_FAILED:
+            case SHIPMENT_FAILED:
             case SHIPPED:
                 // terminal state
         }
@@ -202,18 +206,11 @@ public class Order implements Serializable, Comparable<Order> {
         return status;
     }
 
-    public Publisher<Order> getPublisher() {
-        return supplierPublisher.get();
-    }
-
-    public void setPublisherSupplier(Supplier<Publisher<Order>> supplier) {
-        supplierPublisher = supplier;
-    }
-
     public enum Status {
         CREATED,
         PAID,
         SHIPPED,
-        PAYMENT_FAILED
+        PAYMENT_FAILED,
+        SHIPMENT_FAILED
     }
 }
